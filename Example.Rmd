@@ -1,0 +1,159 @@
+---
+title: 'Project Example: Classifiying Flower'
+author: "STAT 3010"
+date: "3/18/2021"
+output:
+  md_document:
+    variant: markdown_github
+  pdf_document:
+    keep_tex: yes
+    toc: yes
+  html_document:
+    toc: yes
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = F,message = F)
+```
+```{r}
+library(tidyverse)
+library(psych)
+library(knitr)
+library(cowplot)
+library(GGally)
+library(rstatix)
+```
+\newpage
+# Introduction
+
+![Setosa](http://www.phytoimages.siu.edu/users/Cusman1/5_30_14/DSCF0206Irissetosa.jpg){ width=25% }
+
+In this project we are going to try and determine the physical differences between three sub-species of Iris using measurement from their flowers. The both length and width of the sepal and the petal of 50 flowers of each species was measured and record in this study.
+
+# Data Structure and Visualisation
+
+### General summary
+```{r summary}
+kable(summary(iris)) #overall summary
+```
+```{r}
+db <- describeBy(iris,group=iris$Species) #Summaries by Group
+```
+
+## Summary by Species
+
+### Setosa
+
+```{r}
+kable(db$setosa)
+```
+
+### Versicolor
+
+```{r}
+kable(db$versicolor)
+```
+
+### Virginica
+```{r}
+kable(db$virginica)
+```
+
+## Boxplots
+
+```{r Boxplots}
+p <- ggplot(iris,aes(x=Species,fill=Species))
+p1 <- p+geom_boxplot(aes(y=Sepal.Length))+ theme(legend.position = "none") 
+p2 <- p+geom_boxplot(aes(y=Sepal.Width))+ theme(legend.position = "none") 
+p3 <- p+geom_boxplot(aes(y=Petal.Length))+ theme(legend.position = "none") 
+p4 <- p+geom_boxplot(aes(y=Petal.Width))+ theme(legend.position = "none") 
+plot_grid(p1,p2,p3,p4)
+```
+
+From the boxplots we can see there are clear difference between the species based on several variables. This is strong evidence that we will be able to find significant difference the groups
+
+## Scatter plots
+
+```{r}
+q <- ggplot(iris,aes(colour=Species))
+q1 <-q+geom_point(aes(x=Sepal.Length,y=Sepal.Width))+labs(title="Sepal Length vs Sepal Width")+theme(legend.position = 'None')
+q2 <-q+geom_point(aes(x=Petal.Length,y=Petal.Width))+labs(title="Petal Length vs Petal Width")+theme(legend.position = 'None')
+plot_grid(q1,q2)
+```
+
+## Overall Summary
+
+```{r,fig.height=10,fig.width=8}
+ggpairs(iris,aes(colour=Species))
+```
+
+# If we only had one? ANOVA
+
+We wish to find the measurement that is most different among our given Species. So will use Anova to determine if there are differences in the measures for each Species. But first we check some the assumptions of the anova.
+
+## Test for Normality
+
+```{r,test normality SW}
+iris %>% group_by(Species) %>% shapiro_test(Sepal.Width) # test for normality in each group
+```
+Since our p-values are greater the $\alpha=0.05$ we fail to reject the null hypothesis and proceed with the assumption of normality.
+
+```{r,test normality SL}
+g_iris<- iris %>% group_by(Species)  
+g_iris %>% shapiro_test(Sepal.Length)# test for normality in each group sepal length
+```
+```{r,test normality PL}
+g_iris %>% shapiro_test(Petal.Length)# test for normality in each group sepal length
+```
+```{r,test normality PW}
+g_iris %>% shapiro_test(Petal.Width)# test for normality in each group sepal length
+```
+Here we find that the normality assumption is only violated for one of our groups. Since the violation is only in one group we will proceed.
+
+## Test for Equal Variance
+
+```{r}
+bartlett.test(Sepal.Width~Species,iris)
+```
+Since our p-value<$\alpha$ we fail to reject the null and conclude that our variance are not significantly different from each other.
+```{r}
+bartlett.test(Sepal.Length~Species,iris)
+bartlett.test(Petal.Width~Species,iris)
+bartlett.test(Petal.Length~Species,iris)
+```
+He we see heavy violations of the equality of variance since our $n_i$ large we can proceed with our anova.
+
+## ANOVA
+
+```{r,anova SW}
+summary(aov(Sepal.Width~Species,data=iris))
+```
+
+Our anova show us that there are statistically significant difference between our groups
+
+```{r, anova SL PL PW}
+summary(aov(Sepal.Length~Species,data=iris))
+summary(aov(Petal.Length~Species,data=iris))
+summary(aov(Petal.Width~Species,data=iris))
+```
+
+Just as we suspected when we observed the boxplots all our variable have difference between groups. We therefore proceed to perform multiple comparison testing.
+
+## Multiple Comparison
+
+```{r,tukey SW}
+TukeyHSD(aov(Sepal.Width~Species,data=iris),conf.level = .95)
+```
+
+```{r, tukey SL PL PW}
+TukeyHSD(aov(Sepal.Length~Species,data=iris),conf.level = .95)
+TukeyHSD(aov(Petal.Length~Species,data=iris),conf.level = .95)
+TukeyHSD(aov(Petal.Width~Species,data=iris),conf.level = .95)
+```
+
+In fact we find that each variable can be distinguished by their species hence we should be able tell which species or flower is by looking at any of the variables, but since petal length has the largest mean difference it would be the easiest variable to use.
+
+# Conclusion
+
+In our investigation we sort to determine difference between species of iris through a looking at measurements taken from their flower. We found difference with respect to very measurement that look at but we found the largest difference to be found within Petal Length. Future work could look at build a model that predicts the species based on the given measurements and as our investigation shows there are significant differences between species based on these measurements.
